@@ -16,20 +16,30 @@
 	href="${contextPath}/static/thirdParty/bpmn/7.2.1/css/bpmn.css?v=${now}">
 <link rel="stylesheet"
 	href="${contextPath}/static/thirdParty/bpmn/7.2.1/css/diagram-js.css?v=${now}">
-
-<!-- modeler distro -->
-<script
-	src="${contextPath}/static/thirdParty/bpmn/7.2.1/bpmn-modeler.development.js?v=${now}"></script>
+<link rel="stylesheet"
+	href="${contextPath}/static/thirdParty/custom.css?v=${now}">
 
 <!-- needed for this example only -->
-<script
-	src="${contextPath}/static/thirdParty/jquery/3.3.1/jquery.js?v=${now}"></script>
+<script src="${contextPath}/static/thirdParty/jquery/3.3.1/jquery.js?v=${now}"></script>
+
+<!-- modeler distro -->
+<%-- <script src="${contextPath}/static/thirdParty/commonJS/common.js?v=${now}"></script> --%>
+<%-- <script src="${contextPath}/static/thirdParty/bpmn-panel/0.34.0/js/PropertiesPanel.js?v=${now}"></script> --%>
+<script src="${contextPath}/static/thirdParty/bpmn/7.2.1/bpmn-modeler.development2.js?v=${now}"></script>
+
+<%-- <script src="${contextPath}/static/thirdParty/CustomContextPad.js?v=${now}"></script> --%>
 
 <!-- example styles -->
 <style>
-html, body, #canvas {
+html, body {
 	height: 100%;
 	padding: 0;
+	margin: 0;
+}
+
+#canvas {
+	height: 100%;
+	padding: 0 10% 0 10%;
 	margin: 0;
 }
 
@@ -54,6 +64,12 @@ html, body, #canvas {
 	bottom: 20px;
 	left: 20px;
 }
+
+#deploy-button {
+	position: fixed;
+	bottom: 20px;
+	left: 150px;
+}
 </style>
 </head>
 <body>
@@ -63,49 +79,64 @@ html, body, #canvas {
 	<button id="save-button">print to console</button>
 	<button id="deploy-button">deploy diagram</button>
 
-	<script>
-		// modeler instance
+	<script>//# sourceURL=index.js
 		var bpmnModeler = new BpmnJS({
 			container : '#canvas',
 			keyboard : {
 				bindTo : window
 			}
 		});
-		
+
 		async function deployDiagram() {
-		    const form = new FormData();
+			const form = new FormData();
+			let modeling = bpmnModeler.get('modeling');
+			let $process = $('g[data-element-id^="Process"]');
+			let root = bpmnModeler.get('elementRegistry').
+							get($process.attr('data-element-id'));
 
-		    form.append('deployment-name', 'Test Camunda MOdeler');
-		    form.append('deployment-source', 'Camunda Modeler');
-		    form.append('deploy-changed-only', 'true');
+			form.append('deployment-name', 'Test Camunda Modeler');
+			form.append('deployment-source', 'Camunda Modeler');
+			form.append('deploy-changed-only', 'true');
+			form.append('tenant-id', '0001');
+			
+			$.each(root.children, function (e) {
+				if (e.type === "bpmn:ServiceTask") {
+					modeling.updateProperties(e, {
+						efsDelegat : 'com.ebizprise.bpmn.io.ProcessRequestDelegate'
+					});
+				}
+			});
 
-		    if (tenantId) {
-		      form.append('tenant-id', tenantId);
-		    }
+			saveDiagram(function(err, xml) {
+				if (err) {
+					alert(err);
+					return;
+				}
+				
+				const diagramName = root.id;
+				const blob = new Blob([xml], {type : 'text/xml'});
 
-		    const diagramName = diagram.name;
-
-		    const blob = new Blob([ diagram.contents ], { type: 'text/xml' });
-
-		    form.append(diagramName, blob, diagramName);
-
-		    const response = await $.post('/deployment/create', {
-		      body: form
-		    });
-
-		    if (response.ok) {
-
-		      const {
-		        id,
-		        deployedProcessDefinitions
-		      } = await response.json();
-
-		      return {
-		        id,
-		        deployedProcessDefinitions,
-		        deployedProcessDefinition: Object.values(deployedProcessDefinitions || {})[0]
-		      };
-		    }
+				form.append(diagramName, blob, diagramName);
+				
+				var options = {
+						method: "post",
+						url: '${contextPath}/deployment/create',
+						contentType: "application/json;charset=utf-8;",
+						data: form,
+						async: true,
+						success: function (response) {
+							console.log(response);
+						},
+						error: function (xhr) {
+							console.log(xhr);
+						},
+						complete: function () {
+						}
+					};
+					
+				$.ajax(options);
+			});
+		}
 
 		function isSequenceFlow(type) {
 			// 判断是否是线
@@ -143,12 +174,13 @@ html, body, #canvas {
 		async function saveSVG(done) {
 			// 把传入的done再传给bpmn原型的saveSVG函数调用
 			try {
-				const result = await bpmnModeler.saveSVG({
+				const result = await
+				bpmnModeler.saveSVG({
 					format : true
 				});
-				console.log(result);
+				done(null, result);
 			} catch (err) {
-				console.log(err);
+				done(err, null);
 			}
 		}
 
@@ -172,12 +204,13 @@ html, body, #canvas {
 		async function saveDiagram(done) {
 			// 把传入的done再传给bpmn原型的saveXML函数调用
 			try {
-				const result = await bpmnModeler.saveXML({
+				const result = await
+				bpmnModeler.saveXML({
 					format : true
 				});
-				console.log(result);
+				done(null, result);
 			} catch (err) {
-				console.log(err);
+				done(err, null);
 			}
 		}
 
@@ -235,13 +268,13 @@ html, body, #canvas {
 					} else if (eventType === 'element.click') {
 						console.log('点击了element');
 						var shape = e.element ? elementRegistry.get(e.element.id) : e.shape;
-						if (shape.type === 'bpmn:StartEvent') {
-							modeling.updateProperties(shape, {
-								name : '我是修改后的虚线节点',
-								isInterrupting : false,
-								customText : '我是自定义的text属性'
-							})
-						}
+// 						if (shape.type === 'bpmn:StartEvent') {
+// 							modeling.updateProperties(shape, {
+// 								name : '我是修改后的虚线节点',
+// 								isInterrupting : false,
+// 								efsDelegat : '我是自定义的text属性'
+// 							})
+// 						}
 					}
 				})
 			})
@@ -252,13 +285,14 @@ html, body, #canvas {
 		 */
 		async function exportDiagram() {
 			try {
-				const result = await bpmnModeler.saveXML({
+				var result = await
+				bpmnModeler.saveXML({
 					format : true
 				});
-				alert('Diagram exported. Check the developer tools!');
+				result = result.xml.replace(/LoL/g, ":");
 				console.log(result);
 			} catch (err) {
-				console.error('could not save BPMN 2.0 diagram', err);
+				alert('could not save BPMN 2.0 diagram', err);
 			}
 		}
 
@@ -267,33 +301,34 @@ html, body, #canvas {
 		 *
 		 * @param {String} bpmnXML diagram to display
 		 */
-		function openDiagram(bpmnXML) {
+		async function openDiagram(bpmnXML) {
 			// import diagram
-			bpmnModeler.importXML(bpmnXML, function(err) {
+			try {
+				var result = await
+				bpmnModeler.importXML(bpmnXML);
+				if (result) {
+					// access modeler components
+					var canvas = bpmnModeler.get('canvas');
+					var overlays = bpmnModeler.get('overlays');
 
-				if (err) {
-					return console.error('could not import BPMN 2.0 diagram', err);
+					// zoom to fit full viewport
+					canvas.zoom('fit-viewport');
+
+					// attach an overlay to a node
+					overlays.add('SCAN_OK', 'note', {
+						position : {
+							bottom : 0,
+							right : 0
+						},
+						html : '<div class="diagram-note">Mixed up the labels?</div>'
+					});
+
+					// add marker
+					canvas.addMarker('SCAN_OK', 'needs-discussion');
 				}
-
-				// access modeler components
-				var canvas = bpmnModeler.get('canvas');
-				var overlays = bpmnModeler.get('overlays');
-
-				// zoom to fit full viewport
-				canvas.zoom('fit-viewport');
-
-				// attach an overlay to a node
-				overlays.add('SCAN_OK', 'note', {
-					position : {
-						bottom : 0,
-						right : 0
-					},
-					html : '<div class="diagram-note">Mixed up the labels?</div>'
-				});
-
-				// add marker
-				canvas.addMarker('SCAN_OK', 'needs-discussion');
-			});
+			} catch (err) {
+				return console.error('could not import BPMN 2.0 diagram', err);
+			}
 		}
 
 		addBpmnListener();

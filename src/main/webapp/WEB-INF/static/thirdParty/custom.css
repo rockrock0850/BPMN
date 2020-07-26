@@ -1,0 +1,9 @@
+/* app.css */
+/* 自定义 contextPad 的样式 */
+.djs-context-pad .lindaidai-task.entry:hover {
+background: url('bpmn/7.2.1/font/bpmn.eot?43681877') center no-repeat!important;
+background-size: cover!important;
+}
+.djs-context-pad .entry:hover { /* 重新修改了 hover 之后的样式 */
+border: 1px solid #1890ff;
+}
