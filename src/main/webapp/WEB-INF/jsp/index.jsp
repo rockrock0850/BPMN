@@ -25,7 +25,7 @@
 <!-- modeler distro -->
 <%-- <script src="${contextPath}/static/thirdParty/commonJS/common.js?v=${now}"></script> --%>
 <%-- <script src="${contextPath}/static/thirdParty/bpmn-panel/0.34.0/js/PropertiesPanel.js?v=${now}"></script> --%>
-<script src="${contextPath}/static/thirdParty/bpmn/7.2.1/bpmn-modeler.development2.js?v=${now}"></script>
+<script src="${contextPath}/static/thirdParty/bpmn/7.2.1/bpmn-modeler.development.js?v=${now}"></script>
 
 <%-- <script src="${contextPath}/static/thirdParty/CustomContextPad.js?v=${now}"></script> --%>
 
@@ -88,7 +88,7 @@ html, body {
 		});
 
 		async function deployDiagram() {
-			const form = new FormData();
+			let form = new FormData();
 			let modeling = bpmnModeler.get('modeling');
 			let $process = $('g[data-element-id^="Process"]');
 			let root = bpmnModeler.get('elementRegistry').
@@ -98,8 +98,13 @@ html, body {
 			form.append('deployment-source', 'Camunda Modeler');
 			form.append('deploy-changed-only', 'true');
 			form.append('tenant-id', '0001');
-			
-			$.each(root.children, function (e) {
+
+			$.each(root.children, function (i, e) {
+				if (e.type === "bpmn:Process") {
+					modeling.updateProperties(e, {
+						efsDelegat : 'com.ebizprise.bpmn.io.ProcessRequestDelegate'
+					});
+				}
 				if (e.type === "bpmn:ServiceTask") {
 					modeling.updateProperties(e, {
 						efsDelegat : 'com.ebizprise.bpmn.io.ProcessRequestDelegate'
@@ -107,23 +112,27 @@ html, body {
 				}
 			});
 
-			saveDiagram(function(err, xml) {
+			saveDiagram(function(err, result) {
 				if (err) {
-					alert(err);
+					console.log(err);
 					return;
 				}
+
+				result.xml = result.xml.replace(/efsDelegat/g, "camunda:class");
+				result.xml = result.xml.replace(/efsDelegat/g, "bpmn:definitions");
 				
-				const diagramName = root.id;
-				const blob = new Blob([xml], {type : 'text/xml'});
+// 				const diagramName = root.id;
+				const diagramName = 'Test Deployment.bpmn';
+				const blob = new Blob([result.xml], {type : 'text/xml'});
 
 				form.append(diagramName, blob, diagramName);
 				
 				var options = {
-						method: "post",
-						url: '${contextPath}/deployment/create',
-						contentType: "application/json;charset=utf-8;",
+						url: '${contextPath}/engine-rest/deployment/create',
 						data: form,
-						async: true,
+						processData: false,
+						contentType: false,
+						type: 'post',
 						success: function (response) {
 							console.log(response);
 						},
@@ -268,13 +277,13 @@ html, body {
 					} else if (eventType === 'element.click') {
 						console.log('点击了element');
 						var shape = e.element ? elementRegistry.get(e.element.id) : e.shape;
-// 						if (shape.type === 'bpmn:StartEvent') {
-// 							modeling.updateProperties(shape, {
-// 								name : '我是修改后的虚线节点',
-// 								isInterrupting : false,
-// 								efsDelegat : '我是自定义的text属性'
-// 							})
-// 						}
+						if (shape.type === 'bpmn:StartEvent') {
+							modeling.updateProperties(shape, {
+								name : '我是修改后的虚线节点',
+								isInterrupting : false,
+								efsDelegat : '我是自定义的text属性'
+							})
+						}
 					}
 				})
 			})
@@ -289,8 +298,7 @@ html, body {
 				bpmnModeler.saveXML({
 					format : true
 				});
-				result = result.xml.replace(/LoL/g, ":");
-				console.log(result);
+				console.log(result.xml);
 			} catch (err) {
 				alert('could not save BPMN 2.0 diagram', err);
 			}
@@ -314,17 +322,17 @@ html, body {
 					// zoom to fit full viewport
 					canvas.zoom('fit-viewport');
 
-					// attach an overlay to a node
+					/* attach an overlay to a node
 					overlays.add('SCAN_OK', 'note', {
 						position : {
 							bottom : 0,
 							right : 0
 						},
 						html : '<div class="diagram-note">Mixed up the labels?</div>'
-					});
+					});*/
 
-					// add marker
-					canvas.addMarker('SCAN_OK', 'needs-discussion');
+					/* add marker
+					canvas.addMarker('SCAN_OK', 'needs-discussion');*/
 				}
 			} catch (err) {
 				return console.error('could not import BPMN 2.0 diagram', err);

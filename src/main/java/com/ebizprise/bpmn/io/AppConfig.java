@@ -20,7 +20,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @PropertySource({ "classpath:resources.properties" })
 @ComponentScan(basePackages = { "com.ebizprise.bpmn.io" })
 public class AppConfig extends SpringBootServletInitializer implements WebMvcConfigurer {
-	
+
 	@Override
 	public void addResourceHandlers (ResourceHandlerRegistry registry) {
 		registry.addResourceHandler("/static/**").addResourceLocations("/WEB-INF/static/");
@@ -35,11 +35,9 @@ public class AppConfig extends SpringBootServletInitializer implements WebMvcCon
 	@Primary
 	public ProcessEngine ProcessEngineConfiguration () {
 		ProcessEngine processEngine = SpringProcessEngineConfiguration.createStandaloneInMemProcessEngineConfiguration()
-				.setJobExecutorActivate(true)
-				.setHistory(ProcessEngineConfiguration.HISTORY_FULL)
+				.setJobExecutorActivate(true).setHistory(ProcessEngineConfiguration.HISTORY_FULL)
 				.setJdbcUrl("jdbc:h2:mem:camunda;DB_CLOSE_DELAY=1000")
-				.setDatabaseSchemaUpdate(ProcessEngineConfiguration.DB_SCHEMA_UPDATE_TRUE)
-				.buildProcessEngine();
+				.setDatabaseSchemaUpdate(ProcessEngineConfiguration.DB_SCHEMA_UPDATE_TRUE).buildProcessEngine();
 
 		return processEngine;
 	}
